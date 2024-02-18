@@ -396,3 +396,4 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+/ChatGPT.Net/ChatGPT.NetTest/APIKey.cs
