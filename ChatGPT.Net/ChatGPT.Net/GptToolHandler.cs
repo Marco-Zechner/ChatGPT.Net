@@ -24,20 +24,25 @@ namespace ChatGPT.Net
         {
             HashSet<MethodInfo> apiMethods = [];
 
-            var possibleAPIs = Assembly.GetExecutingAssembly().GetTypes();
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-            foreach (var possibleAPI in possibleAPIs)
+            foreach (var assembly in assemblies)
             {
-                var methods = possibleAPI.GetMethods(BindingFlags.Public | BindingFlags.Static);
+                var types = assembly.GetTypes();
 
-                foreach (var method in methods)
+                foreach (var type in types)
                 {
-                    // Check if the method has the GptApiMethodAttribute
-                    var attributes = method.GetCustomAttributes(typeof(GptApiMethodAttribute), false);
-                    if (attributes.Length > 0)
+                    var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Static);
+
+                    foreach (var method in methods)
                     {
-                        apiMethods.Add(method);
-                        AddToolToClassMapping(method.DeclaringType, method.Name);
+                        var attributes = method.GetCustomAttributes(typeof(GptApiMethodAttribute), inherit: false);
+                        if (attributes.Length > 0)
+                        {
+                            apiMethods.Add(method);
+                            string fullMethodName = method.DeclaringType.Name + "-" + method.Name;
+                            AddToolToClassMapping(method.DeclaringType, fullMethodName);
+                        }
                     }
                 }
             }
@@ -56,8 +61,6 @@ namespace ChatGPT.Net
                 value.Add(methodName);
             }
         }
-
-
 
         private static void PopulateFunctionMappingsAndGenerateTools(HashSet<MethodInfo> methods)
         {
@@ -94,14 +97,17 @@ namespace ChatGPT.Net
                         }
                     }
 
-                    toolMappings.Add(method.Name, new ToolMapping(method, [.. properties.Keys]));
+                    string fullMethodName = method.DeclaringType.Name + "-" + method.Name;
+
+
+                    toolMappings.Add(fullMethodName, new ToolMapping(method, [.. properties.Keys]));
 
                     var tool = new GptTool
                     {
                         Type = "function",
                         Function = new GpToolsFunction
                         {
-                            Name = method.Name,
+                            Name = fullMethodName,
                             Description = toolFunctionAttribute.Description,
                             Parameters = new GptToolsParameters
                             {

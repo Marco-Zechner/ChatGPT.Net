@@ -2,6 +2,17 @@
 {
     public class GptApiAttribute
     {
+        [AttributeUsage(AttributeTargets.Method, Inherited = false)]
+        public class GptApiMethodAttribute : Attribute
+        {
+            public string Description { get; }
+
+            public GptApiMethodAttribute(string description)
+            {
+                Description = description;
+            }
+        }
+
         [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
         public class GptApiParamAttribute : Attribute
         {
@@ -16,17 +27,6 @@
                 Description = description;
                 IsOptional = isOptional;
                 AllowedValues = allowedValues;
-            }
-        }
-
-        [AttributeUsage(AttributeTargets.Method, Inherited = false)]
-        public class GptApiMethodAttribute : Attribute
-        {
-            public string Description { get; }
-
-            public GptApiMethodAttribute(string description)
-            {
-                Description = description;
             }
         }
     }

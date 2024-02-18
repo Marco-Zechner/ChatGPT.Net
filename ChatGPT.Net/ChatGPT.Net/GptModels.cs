@@ -32,23 +32,14 @@
 
     }
 
-    public class GptModelInfo
+    public class GptModelInfo(string name, float promptCostPer1kToken, int maxPromptToken, float generationCostPer1kToken, int maxGenerationToken, string description)
     {
-        public string Name { get; }
-        public float PromptCostPer1kToken { get; }
-        public int MaxPromptToken { get; }
-        public float CompletionCostPer1kToken { get; }
-        public int MaxGenerationToken { get; }
-        public string Description { get; }
-
-        public GptModelInfo(string name, float promptCostPer1kToken, int maxPromptToken, float generationCostPer1kToken, int maxGenerationToken, string description)
-        {
-            Name = name;
-            PromptCostPer1kToken = promptCostPer1kToken;
-            MaxPromptToken = maxPromptToken;
-            CompletionCostPer1kToken = generationCostPer1kToken;
-            MaxGenerationToken = maxGenerationToken;
-            Description = description;
-        }
+        public string Name { get; } = name;
+        public float PromptCostPer1kToken { get; } = promptCostPer1kToken;
+        public int MaxPromptToken { get; } = maxPromptToken;
+        public float CompletionCostPer1kToken { get; } = generationCostPer1kToken;
+        public int MaxGenerationToken { get; } = maxGenerationToken;
+        public string Description { get; } = description;
+        public int MaxToolCallsInRow { get; set; } = 2;
     }
 }

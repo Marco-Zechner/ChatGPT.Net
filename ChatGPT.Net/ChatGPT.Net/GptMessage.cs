@@ -22,7 +22,7 @@ namespace ChatGPT.Net
 
     public class GptFunctionCalls(List<GptToolCall> toolCalls) : GptMessage(GptRole.assistant, null)
     {
-        [JsonProperty("tool_calls")]
+        [JsonProperty("tool_calls", DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<GptToolCall> ToolCalls { get; set; } = toolCalls;
     }
 
