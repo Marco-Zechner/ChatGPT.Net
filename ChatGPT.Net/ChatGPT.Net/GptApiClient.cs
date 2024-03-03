@@ -3,36 +3,33 @@ using System.Net.Http.Headers;
 
 namespace ChatGPT.Net
 {
-    public class GptApiClient(string apiKey, GptModelInfo model)
+    public class GptApiClient(string apiKey, GptModelInfo model, IGptDebug debug = null)
     {
         private readonly string apiKey = apiKey;
         private readonly GptModelInfo model = model;
 
-        public async Task<GptResponse> SingleCompletionAsync(IEnumerable<GptMessage> messages, List<GptTool>? tools = null, bool debug = false)
+        public async Task<GptResponse> SingleCompletionAsync(IEnumerable<GptMessage> messages, List<GptTool>? tools = null, bool useDebug = false)
         {
             string jsonPrompt = GenerateJsonRequest(model, messages, tools);
 
-            if (debug)
-                PrintJson(jsonPrompt, ConsoleColor.DarkYellow);
+            if (debug != null && useDebug)
+                debug.Debug(jsonPrompt, 255, 165, 0);
 
             (string jsonResponse, bool success) = await SendJsonRequestAsync(apiKey, jsonPrompt);
 
             if (!success)
             {
-                PrintJson(jsonPrompt, ConsoleColor.DarkYellow);
-                PrintJson(jsonResponse, ConsoleColor.Red);
+                if (debug == null || !useDebug)
+                {
+                    throw new Exception(jsonResponse);
+                }
+
+                debug.Debug(jsonResponse, 255, 0, 0);
             }
-            else if (debug)
-                PrintJson(jsonResponse, ConsoleColor.DarkGreen);
+            else if (debug != null && useDebug)
+                debug.Debug(jsonResponse, 0, 100, 0);
 
             return GenerateResponseFromJson(jsonResponse, success);
-        }
-
-        private static void PrintJson(string json, ConsoleColor color)
-        {
-            Console.ForegroundColor = color;
-            Console.WriteLine(json);
-            Console.ForegroundColor = ConsoleColor.White;
         }
 
         public async Task<GptResponse> ConversationCompletionAsync(string conversationID, List<GptTool>? tools = null)

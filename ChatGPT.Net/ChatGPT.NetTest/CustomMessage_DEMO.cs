@@ -7,11 +7,11 @@ namespace ChatGPT.NetTest
     {
         static GptModelInfo model;
 
-        public static async Task CustomConversation(string KEY, bool enableTools, bool debug = false)
+        public static async Task CustomConversation(string KEY, bool enableTools, IGptDebug debug = null)
         {
             model = GptModels.GetModel("gpt-3.5-turbo-0125");
 
-            GptApiClient gptClient = new(KEY, model);
+            GptApiClient gptClient = new(KEY, model, debug);
 
             BasicCostMonitor.PrintBaseInfo(model);
 
@@ -27,19 +27,21 @@ namespace ChatGPT.NetTest
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write("User:     ");
+                Console.Write("User: ");
                 Console.ForegroundColor = ConsoleColor.White;
                 messages.Add(new GptMessage(GptRole.user, Console.ReadLine()));
 
-                GptResponse response = await gptClient.SingleCompletionAsync(messages, toolConfig.GetEnabledTools(), debug);
+                GptResponse response = await gptClient.SingleCompletionAsync(messages, toolConfig.GetEnabledTools(), debug != null);
 
                 if (response is GptErrorResponse)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write("Error:    ");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine((response as GptErrorResponse).Error.Message);
-                    return;
+                    if (debug != null)
+                    {
+                        debug.Debug((response as GptErrorResponse).Error.Message, 255, 0, 0);
+                        return;
+                    }
+
+                    throw new Exception((response as GptErrorResponse).Error.Message);
                 }
 
                 int maxToolCalls = model.MaxToolCallsInRow;
@@ -52,12 +54,10 @@ namespace ChatGPT.NetTest
                     if (toolCalls >= maxToolCalls)
                     {
                         messages.Add(new GptMessage(GptRole.system, $"\"error\": \"To many Toolcalls in a row\"\n\"context\": MaxToolCalls: {maxToolCalls}\n\"reason\": \"ToolCalls: {toolCalls}\""));
-                        Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.Write("System: ");
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.WriteLine($"Too many Toolcalls.");
 
-                        response = await gptClient.SingleCompletionAsync(messages, null, debug);
+                        debug?.Debug("System: Too many Toolcalls.", 255, 0, 255);
+
+                        response = await gptClient.SingleCompletionAsync(messages, null, debug != null);
                         break;
                     }
                     toolCalls++;
@@ -82,10 +82,9 @@ namespace ChatGPT.NetTest
                         else
                         {
                             messages.Add(new GptMessage(GptRole.system, $"\"error\": \"Failed Function Call\"\n\"context\": {JsonHelper.ConvertObjectToString(chatToolCall)}\n\"reason\": \"Tool not found.\""));
-                            Console.ForegroundColor = ConsoleColor.Cyan;
-                            Console.Write("ToolCall: ");
-                            Console.ForegroundColor = ConsoleColor.White;
-                            Console.WriteLine($"Function {toolCallFormGPT[i].Function.Name} not found.");
+
+
+                            debug?.Debug($"System: Function {toolCallFormGPT[i].Function.Name} not found.", 255, 0, 255);
                         }
                     }
 
@@ -97,19 +96,15 @@ namespace ChatGPT.NetTest
                         {
                             var functionName = toolCall[i].Function.Name;
                             var functionArgs = JObject.Parse(toolCall[i].Function.Arguments);
-                            var functionResponse = GptToolHandler.CallFunction(functionName, functionArgs);
+                            var functionResponse = await GptToolHandler.CallFunctionAuto(functionName, functionArgs);
 
-                            Console.ForegroundColor = ConsoleColor.Cyan;
-                            Console.Write("ToolCall: ");
-                            Console.ForegroundColor = ConsoleColor.White;
-                            Console.WriteLine(functionName + "()");
-                            Console.WriteLine(JsonHelper.ConvertObjectToString(functionResponse));
+                            debug?.Debug($"ToolCall: {functionName}()\n{JsonHelper.ConvertObjectToString(functionResponse)}", 0, 255, 255);
 
                             messages.Add(new GptFunctionReturn(GptRole.tool, JsonHelper.ConvertObjectToString(functionResponse), toolCall[i].ID, toolCall[i].Function.Name));
                         }
                     }
 
-                    response = await gptClient.SingleCompletionAsync(messages, toolConfig.GetEnabledTools(), debug);
+                    response = await gptClient.SingleCompletionAsync(messages, toolConfig.GetEnabledTools(), debug != null);
                 }
 
                 BasicCostMonitor.LastCost = toolCallCost;

@@ -14,20 +14,12 @@
         }
 
         [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-        public class GptApiParamAttribute : Attribute
+        public class GptApiParamAttribute(string paramName, string description = "", bool isOptional = false, params string[] allowedValues) : Attribute
         {
-            public string ParamName { get; }
-            public string Description { get; }
-            public bool IsOptional { get; }
-            public string[] AllowedValues { get; }
-
-            public GptApiParamAttribute(string paramName, string description = "", bool isOptional = false, params string[] allowedValues)
-            {
-                ParamName = paramName;
-                Description = description;
-                IsOptional = isOptional;
-                AllowedValues = allowedValues;
-            }
+            public string ParamName { get; } = paramName;
+            public string Description { get; } = description;
+            public bool IsOptional { get; } = isOptional;
+            public string[] AllowedValues { get; } = allowedValues;
         }
     }
 }

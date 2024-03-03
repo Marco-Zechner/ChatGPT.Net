@@ -123,34 +123,94 @@ namespace ChatGPT.Net
         }
 
 
-        public static object CallFunction(string functionName, JObject functionArgs)
+        public static async Task<object> CallFunctionAuto(string functionName, JObject functionArgs)
         {
             if (toolMappings.TryGetValue(functionName, out var functionMapping))
             {
                 var method = functionMapping.Method;
-                var parameterInfos = method.GetParameters();
-                var parameters = new object[parameterInfos.Length];
 
-                for (int i = 0; i < parameterInfos.Length; i++)
+                // Check if the method is asynchronous (returns Task or Task<T>)
+                if (typeof(Task).IsAssignableFrom(method.ReturnType))
                 {
-                    var parameterInfo = parameterInfos[i];
-                    var paramName = parameterInfo.Name;
+                    // Asynchronous method, call the async handler
+                    return await CallFunctionAsync(functionName, functionArgs);
+                }
+                else
+                {
+                    // Synchronous method, call the sync handler
+                    return CallFunctionSync(functionName, functionArgs);
+                }
+            }
 
-                    if (!functionArgs.TryGetValue(paramName, out JToken argToken) && parameterInfo.IsOptional)
-                    {
-                        parameters[i] = Type.Missing;
-                    }
-                    else
-                    {
-                        parameters[i] = argToken.ToObject(parameterInfo.ParameterType);
-                    }
+            return $"Function '{functionName}' not found or arguments mismatch.";
+        }
+
+        public static object CallFunctionSync(string functionName, JObject functionArgs)
+        {
+            if (toolMappings.TryGetValue(functionName, out var functionMapping))
+            {
+                var method = functionMapping.Method;
+                if (typeof(Task).IsAssignableFrom(method.ReturnType))
+                {
+                    return ($"ERROR: {functionName} is an asynchronous method and should be called using CallFunctionAsync.");
                 }
 
+                var parameters = PrepareParameters(method, functionArgs);
                 return method.Invoke(null, parameters);
             }
 
             return $"Function '{functionName}' not found or arguments mismatch.";
         }
+
+        public static async Task<object> CallFunctionAsync(string functionName, JObject functionArgs)
+        {
+            if (toolMappings.TryGetValue(functionName, out var functionMapping))
+            {
+                var method = functionMapping.Method;
+                if (!typeof(Task).IsAssignableFrom(method.ReturnType))
+                {
+                    return ($"ERROR: {functionName} is not an asynchronous method and should be called using CallFunctionSync.");
+                }
+
+                var parameters = PrepareParameters(method, functionArgs);
+
+                var task = (Task)method.Invoke(null, parameters);
+                await task.ConfigureAwait(false);
+
+                if (task.GetType().IsGenericType)
+                {
+                    return ((dynamic)task).Result;
+                }
+
+                return null; // For Task without result
+            }
+
+            return $"Function '{functionName}' not found or arguments mismatch.";
+        }
+
+        private static object[] PrepareParameters(MethodInfo method, JObject functionArgs)
+        {
+            var parameterInfos = method.GetParameters();
+            var parameters = new object[parameterInfos.Length];
+
+            for (int i = 0; i < parameterInfos.Length; i++)
+            {
+                var parameterInfo = parameterInfos[i];
+                var paramName = parameterInfo.Name;
+
+                if (!functionArgs.TryGetValue(paramName, out JToken argToken) && parameterInfo.IsOptional)
+                {
+                    parameters[i] = Type.Missing;
+                }
+                else
+                {
+                    parameters[i] = argToken.ToObject(parameterInfo.ParameterType);
+                }
+            }
+
+            return parameters;
+        }
+
 
     }
 
